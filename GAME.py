@@ -1,7 +1,6 @@
 import streamlit as st
 import pygame
 import numpy as np
-import requests
 import time
 
 # Inizializza pygame
@@ -48,7 +47,7 @@ class Cannon:
         return Bubble(self.x, self.y, color)
 
 def initialize_game():
-    bubbles = [Bubble(np.random.randint(100, WINDOW_WIDTH-100), 50, np.random.choice(COLORS)) for _ in range(10)]
+    bubbles = [Bubble(np.random.randint(100, WINDOW_WIDTH-100), 50, COLORS[np.random.choice(len(COLORS))]) for _ in range(10)]
     cannon = Cannon()
     return bubbles, cannon
 
@@ -63,19 +62,32 @@ def update_game(bubbles, cannon, gaze_x, entropy):
     cannon.draw()
 
     if entropy < 1.0:  # Entropia sotto la soglia del 5%
-        fired_bubble = cannon.fire(np.random.choice(COLORS))
+        fired_bubble = cannon.fire(COLORS[np.random.choice(len(COLORS))])
         bubbles.append(fired_bubble)
 
     pygame.display.update()
 
+# Integrazione di WebGazer.js per il tracciamento degli occhi
+st.markdown("""
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+    <script>
+        window.onload = function() {
+            webgazer.setGazeListener(function(data, elapsedTime) {
+                if (data == null) {
+                    return;
+                }
+                var xprediction = data.x; // Coordinate x dello sguardo
+                document.getElementById("gazeX").value = xprediction;
+            }).begin();
+        }
+    </script>
+    <input type="hidden" id="gazeX" name="gazeX">
+""", unsafe_allow_html=True)
+
 def main():
     st.title("Mind Bubble Shooter")
 
-    st.sidebar.header("Configurazione")
-    api_key = st.sidebar.text_input("Inserisci la tua API Key per random.org", type="password")
-    client = configure_random_org(api_key) if api_key else None
-
-    gaze_x = st.slider("Posizione dello sguardo (x)", min_value=0, max_value=WINDOW_WIDTH, value=WINDOW_WIDTH // 2)
+    gaze_x = st.session_state.get('gazeX', WINDOW_WIDTH // 2)
 
     start_game = st.sidebar.button("Inizia il Gioco")
 
@@ -88,9 +100,9 @@ def main():
     if start_game:
         running = True
         while running:
-            random_bits = fetch_random_data(client) if client else np.random.randint(0, 2, size=1000)
-            entropy = calculate_entropy(random_bits)
-            
+            random_bits = np.random.randint(0, 2, size=1000)
+            entropy = -np.sum(np.bincount(random_bits) / len(random_bits) * np.log2(np.bincount(random_bits) / len(random_bits)))
+
             update_game(st.session_state['bubbles'], st.session_state['cannon'], gaze_x, entropy)
             
             for event in pygame.event.get():
