@@ -1,14 +1,16 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+import requests
 import time
 
 # Imposta la pagina di Streamlit
 st.set_page_config(page_title="Mind Bubble Shooter", layout="wide")
 
-# Colori per le bolle
+# Definisci i colori per le bolle
 COLORS = ["red", "green", "blue", "yellow", "cyan"]
 
+# Classe Bubble per gestire le bolle
 class Bubble:
     def __init__(self, x, y, color):
         self.x = x
@@ -23,6 +25,7 @@ class Bubble:
     def move_down(self):
         self.y -= 5  # Movimento verso il basso per ogni frame
 
+# Classe Cannon per gestire il cannone
 class Cannon:
     def __init__(self):
         self.x = 400
@@ -38,11 +41,13 @@ class Cannon:
         # Converti la posizione dello sguardo in un angolo
         self.angle = np.clip(90 + (gaze_x - 400) / 10, 30, 150)
 
+# Funzione per inizializzare il gioco
 def initialize_game():
     bubbles = [Bubble(np.random.randint(100, 700), np.random.randint(300, 600), np.random.choice(COLORS)) for _ in range(10)]
     cannon = Cannon()
     return bubbles, cannon
 
+# Funzione per aggiornare il gioco
 def update_game(bubbles, cannon, gaze_x, entropy):
     fig, ax = plt.subplots()
     ax.set_xlim(0, 800)
@@ -59,6 +64,21 @@ def update_game(bubbles, cannon, gaze_x, entropy):
     st.pyplot(fig)
     time.sleep(0.1)  # Aggiungi una pausa per rallentare il ciclo di aggiornamento
 
+# Funzione per ottenere numeri casuali
+def fetch_random_data(api_key=None):
+    if api_key:
+        try:
+            response = requests.get(f'https://www.random.org/integers/?num=1000&min=0&max=1&col=1&base=10&format=plain&rnd=new&apikey={api_key}')
+            random_bits = list(map(int, response.text.split()))
+            return random_bits, True
+        except Exception as e:
+            st.warning(f"Errore durante la chiamata all'API di random.org: {e}")
+            return np.random.randint(0, 2, size=1000).tolist(), False
+    else:
+        # Utilizza un generatore pseudo-casuale locale se non è fornita una chiave API
+        return np.random.randint(0, 2, size=1000).tolist(), False
+
+# Funzione principale
 def main():
     st.title("Mind Bubble Shooter")
 
@@ -79,8 +99,10 @@ def main():
     <input type="hidden" id="gazeX" name="gazeX" value="400">
     """, unsafe_allow_html=True)
 
-    # Aggiungi uno slider per simulare la posizione dello sguardo
     gaze_x = st.slider("Posizione dello sguardo (x)", min_value=0, max_value=800, value=400)
+
+    # Input per la chiave API di random.org
+    api_key = st.text_input("Inserisci la tua API Key per random.org (opzionale)", type="password")
 
     if 'bubbles' not in st.session_state:
         st.session_state['bubbles'], st.session_state['cannon'] = initialize_game()
@@ -88,7 +110,7 @@ def main():
     start_game = st.button("Inizia il Gioco")
 
     if start_game:
-        random_bits = np.random.randint(0, 2, size=1000)
+        random_bits, from_api = fetch_random_data(api_key)
         entropy = -np.sum(np.bincount(random_bits) / len(random_bits) * np.log2(np.bincount(random_bits) / len(random_bits)))
 
         update_game(st.session_state['bubbles'], st.session_state['cannon'], gaze_x, entropy)
