@@ -99,7 +99,8 @@ def main():
     <input type="hidden" id="gazeX" name="gazeX" value="400">
     """, unsafe_allow_html=True)
 
-    gaze_x = st.slider("Posizione dello sguardo (x)", min_value=0, max_value=800, value=400)
+    # Campo nascosto per catturare le coordinate dello sguardo
+    gaze_x = st.text_input("Gaze X", value="400")
 
     # Input per la chiave API di random.org
     api_key = st.text_input("Inserisci la tua API Key per random.org (opzionale)", type="password")
@@ -111,10 +112,14 @@ def main():
 
     if start_game:
         random_bits, from_api = fetch_random_data(api_key)
-        entropy = -np.sum(np.bincount(random_bits) / len(random_bits) * np.log2(np.bincount(random_bits) / len(random_bits)))
-
-        update_game(st.session_state['bubbles'], st.session_state['cannon'], gaze_x, entropy)
+        
+        # Calcola l'entropia per ogni slot di 200 cifre
+        for i in range(0, len(random_bits), 200):
+            slot = random_bits[i:i+200]
+            entropy = -np.sum(np.bincount(slot) / len(slot) * np.log2(np.bincount(slot) / len(slot)))
+            
+            if entropy < np.log2(2) * 0.05:  # Controlla se l'entropia è inferiore al 5%
+                update_game(st.session_state['bubbles'], st.session_state['cannon'], float(gaze_x), entropy)
 
 if __name__ == "__main__":
     main()
-
