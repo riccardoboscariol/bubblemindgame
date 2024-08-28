@@ -2,3 +2,4 @@ streamlit
 pygame
 numpy
 requests
+matplotlib
