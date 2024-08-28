@@ -3,44 +3,17 @@ import pygame
 import numpy as np
 import requests
 import time
-import math
 
-# Funzioni di supporto per la generazione dei numeri casuali e il calcolo dell'entropia
-def configure_random_org(api_key):
-    """Configura il client RANDOM.ORG se la chiave API è valida."""
-    try:
-        client = RandomOrgClient(api_key)
-        return client
-    except Exception as e:
-        st.error(f"Errore nella configurazione del client random.org: {e}")
-        return None
-
-def fetch_random_data(client, num_bits=1000):
-    """Ottieni dati casuali da random.org o utilizza un generatore pseudocasuale locale."""
-    try:
-        random_bits = client.generate_integers(num_bits, 0, 1)
-        return random_bits
-    except Exception as e:
-        st.warning("Errore durante la generazione dei bit casuali da random.org, utilizzo del generatore locale.")
-        random_bits = np.random.randint(0, 2, size=num_bits)
-        return random_bits
-
-def calculate_entropy(bits):
-    """Calcola l'entropia utilizzando la formula di Shannon."""
-    n = len(bits)
-    counts = np.bincount(bits, minlength=2)
-    p = counts / n
-    p = p[np.nonzero(p)]
-    entropy = -np.sum(p * np.log2(p))
-    return entropy
-
-# Inizializzazione di Pygame e Streamlit
+# Inizializza pygame
 pygame.init()
+
+# Configura la finestra di gioco
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
 GAME_WINDOW = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 pygame.display.set_caption("Mind Bubble Shooter")
 
+# Colori per le bolle
 COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255)]
 
 class Bubble:
@@ -54,13 +27,13 @@ class Bubble:
         pygame.draw.circle(GAME_WINDOW, self.color, (self.x, self.y), self.radius)
 
     def move_down(self):
-        self.y += 5
+        self.y += 5  # Movimento verso il basso per ogni frame
 
 class Cannon:
     def __init__(self):
         self.x = WINDOW_WIDTH // 2
         self.y = WINDOW_HEIGHT - 30
-        self.angle = 90  # Angolo iniziale
+        self.angle = 90  # Angolo di default
 
     def draw(self):
         end_x = self.x + 50 * np.cos(np.radians(self.angle))
@@ -74,7 +47,6 @@ class Cannon:
     def fire(self, color):
         return Bubble(self.x, self.y, color)
 
-# Funzioni di controllo del gioco
 def initialize_game():
     bubbles = [Bubble(np.random.randint(100, WINDOW_WIDTH-100), 50, np.random.choice(COLORS)) for _ in range(10)]
     cannon = Cannon()
@@ -96,7 +68,6 @@ def update_game(bubbles, cannon, gaze_x, entropy):
 
     pygame.display.update()
 
-# Interfaccia utente Streamlit
 def main():
     st.title("Mind Bubble Shooter")
 
