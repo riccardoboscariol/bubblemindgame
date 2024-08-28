@@ -81,35 +81,26 @@ st.markdown("""
             }).begin();
         }
     </script>
-    <input type="hidden" id="gazeX" name="gazeX">
+    <input type="hidden" id="gazeX" name="gazeX" value="400">
 """, unsafe_allow_html=True)
 
 def main():
     st.title("Mind Bubble Shooter")
 
-    gaze_x = st.session_state.get('gazeX', WINDOW_WIDTH // 2)
-
-    start_game = st.sidebar.button("Inizia il Gioco")
-
-    if start_game:
-        st.session_state['bubbles'], st.session_state['cannon'] = initialize_game()
+    gaze_x = int(st.session_state.get('gazeX', WINDOW_WIDTH // 2))
 
     if 'bubbles' not in st.session_state:
         st.session_state['bubbles'], st.session_state['cannon'] = initialize_game()
 
+    start_game = st.button("Inizia il Gioco")
+
     if start_game:
-        running = True
-        while running:
-            random_bits = np.random.randint(0, 2, size=1000)
-            entropy = -np.sum(np.bincount(random_bits) / len(random_bits) * np.log2(np.bincount(random_bits) / len(random_bits)))
+        random_bits = np.random.randint(0, 2, size=1000)
+        entropy = -np.sum(np.bincount(random_bits) / len(random_bits) * np.log2(np.bincount(random_bits) / len(random_bits)))
 
-            update_game(st.session_state['bubbles'], st.session_state['cannon'], gaze_x, entropy)
-            
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
+        update_game(st.session_state['bubbles'], st.session_state['cannon'], gaze_x, entropy)
 
-            time.sleep(0.5)
+        time.sleep(0.5)  # Aggiungi una pausa per evitare un ciclo troppo rapido
 
     pygame.quit()
 
