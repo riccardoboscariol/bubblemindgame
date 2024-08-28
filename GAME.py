@@ -1,19 +1,13 @@
 import streamlit as st
-import pygame
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
-# Inizializza pygame
-pygame.init()
-
-# Configura la finestra di gioco
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
-GAME_WINDOW = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pygame.display.set_caption("Mind Bubble Shooter")
+# Imposta la pagina di Streamlit
+st.set_page_config(page_title="Mind Bubble Shooter", layout="wide")
 
 # Colori per le bolle
-COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255)]
+COLORS = ["red", "green", "blue", "yellow", "cyan"]
 
 class Bubble:
     def __init__(self, x, y, color):
@@ -22,72 +16,53 @@ class Bubble:
         self.color = color
         self.radius = 20
 
-    def draw(self):
-        pygame.draw.circle(GAME_WINDOW, self.color, (self.x, self.y), self.radius)
+    def draw(self, ax):
+        bubble_circle = plt.Circle((self.x, self.y), self.radius, color=self.color, ec='black')
+        ax.add_patch(bubble_circle)
 
     def move_down(self):
-        self.y += 5  # Movimento verso il basso per ogni frame
+        self.y -= 5  # Movimento verso il basso per ogni frame
 
 class Cannon:
     def __init__(self):
-        self.x = WINDOW_WIDTH // 2
-        self.y = WINDOW_HEIGHT - 30
+        self.x = 400
+        self.y = 50
         self.angle = 90  # Angolo di default
 
-    def draw(self):
+    def draw(self, ax):
         end_x = self.x + 50 * np.cos(np.radians(self.angle))
         end_y = self.y - 50 * np.sin(np.radians(self.angle))
-        pygame.draw.line(GAME_WINDOW, (255, 255, 255), (self.x, self.y), (end_x, end_y), 5)
+        ax.plot([self.x, end_x], [self.y, end_y], color="black")
 
     def aim(self, gaze_x):
         # Converti la posizione dello sguardo in un angolo
-        self.angle = np.clip(90 + (gaze_x - WINDOW_WIDTH / 2) / 10, 30, 150)
-
-    def fire(self, color):
-        return Bubble(self.x, self.y, color)
+        self.angle = np.clip(90 + (gaze_x - 400) / 10, 30, 150)
 
 def initialize_game():
-    bubbles = [Bubble(np.random.randint(100, WINDOW_WIDTH-100), 50, COLORS[np.random.choice(len(COLORS))]) for _ in range(10)]
+    bubbles = [Bubble(np.random.randint(100, 700), np.random.randint(300, 600), np.random.choice(COLORS)) for _ in range(10)]
     cannon = Cannon()
     return bubbles, cannon
 
 def update_game(bubbles, cannon, gaze_x, entropy):
-    GAME_WINDOW.fill((0, 0, 0))  # Sfondo nero
+    fig, ax = plt.subplots()
+    ax.set_xlim(0, 800)
+    ax.set_ylim(0, 600)
+    ax.set_aspect('equal')
 
     for bubble in bubbles:
-        bubble.draw()
+        bubble.draw(ax)
         bubble.move_down()
 
     cannon.aim(gaze_x)
-    cannon.draw()
+    cannon.draw(ax)
 
-    if entropy < 1.0:  # Entropia sotto la soglia del 5%
-        fired_bubble = cannon.fire(COLORS[np.random.choice(len(COLORS))])
-        bubbles.append(fired_bubble)
-
-    pygame.display.update()
-
-# Integrazione di WebGazer.js per il tracciamento degli occhi
-st.markdown("""
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
-    <script>
-        window.onload = function() {
-            webgazer.setGazeListener(function(data, elapsedTime) {
-                if (data == null) {
-                    return;
-                }
-                var xprediction = data.x; // Coordinate x dello sguardo
-                document.getElementById("gazeX").value = xprediction;
-            }).begin();
-        }
-    </script>
-    <input type="hidden" id="gazeX" name="gazeX" value="400">
-""", unsafe_allow_html=True)
+    st.pyplot(fig)
+    time.sleep(0.1)  # Aggiungi una pausa per rallentare il ciclo di aggiornamento
 
 def main():
     st.title("Mind Bubble Shooter")
 
-    gaze_x = int(st.session_state.get('gazeX', WINDOW_WIDTH // 2))
+    gaze_x = st.slider("Posizione dello sguardo (x)", min_value=0, max_value=800, value=400)
 
     if 'bubbles' not in st.session_state:
         st.session_state['bubbles'], st.session_state['cannon'] = initialize_game()
@@ -99,10 +74,6 @@ def main():
         entropy = -np.sum(np.bincount(random_bits) / len(random_bits) * np.log2(np.bincount(random_bits) / len(random_bits)))
 
         update_game(st.session_state['bubbles'], st.session_state['cannon'], gaze_x, entropy)
-
-        time.sleep(0.5)  # Aggiungi una pausa per evitare un ciclo troppo rapido
-
-    pygame.quit()
 
 if __name__ == "__main__":
     main()
