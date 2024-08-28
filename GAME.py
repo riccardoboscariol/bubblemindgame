@@ -1,13 +1,18 @@
 import streamlit as st
+import pygame
 import numpy as np
-import time
-import matplotlib.pyplot as plt
 
-# Imposta la pagina di Streamlit
-st.set_page_config(page_title="Mind Bubble Shooter", layout="wide")
+# Inizializza pygame
+pygame.init()
 
-# Colori per le bolle
-COLORS = ["red", "green", "blue", "yellow", "cyan"]
+# Configura la finestra di gioco
+WINDOW_WIDTH = 800
+WINDOW_HEIGHT = 600
+GAME_WINDOW = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+pygame.display.set_caption("Mind Bubble Shooter")
+
+# Colori per le bolle (Lista monodimensionale)
+COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255)]
 
 class Bubble:
     def __init__(self, x, y, color):
@@ -16,48 +21,51 @@ class Bubble:
         self.color = color
         self.radius = 20
 
-    def draw(self, ax):
-        bubble_circle = plt.Circle((self.x, self.y), self.radius, color=self.color, ec='black')
-        ax.add_patch(bubble_circle)
+    def draw(self):
+        pygame.draw.circle(GAME_WINDOW, self.color, (self.x, self.y), self.radius)
 
     def move_down(self):
-        self.y -= 5  # Movimento verso il basso per ogni frame
+        self.y += 5  # Movimento verso il basso per ogni frame
 
 class Cannon:
     def __init__(self):
-        self.x = 400
-        self.y = 50
+        self.x = WINDOW_WIDTH // 2
+        self.y = WINDOW_HEIGHT - 30
         self.angle = 90  # Angolo di default
 
-    def draw(self, ax):
+    def draw(self):
         end_x = self.x + 50 * np.cos(np.radians(self.angle))
         end_y = self.y - 50 * np.sin(np.radians(self.angle))
-        ax.plot([self.x, end_x], [self.y, end_y], color="black")
+        pygame.draw.line(GAME_WINDOW, (255, 255, 255), (self.x, self.y), (end_x, end_y), 5)
 
     def aim(self, gaze_x):
         # Converti la posizione dello sguardo in un angolo
-        self.angle = np.clip(90 + (gaze_x - 400) / 10, 30, 150)
+        self.angle = np.clip(90 + (gaze_x - WINDOW_WIDTH / 2) / 10, 30, 150)
+
+    def fire(self, color):
+        return Bubble(self.x, self.y, color)
 
 def initialize_game():
-    bubbles = [Bubble(np.random.randint(100, 700), np.random.randint(300, 600), np.random.choice(COLORS)) for _ in range(10)]
+    # Assicurati che la scelta del colore sia corretta
+    bubbles = [Bubble(np.random.randint(100, WINDOW_WIDTH-100), 50, COLORS[np.random.choice(len(COLORS))]) for _ in range(10)]
     cannon = Cannon()
     return bubbles, cannon
 
 def update_game(bubbles, cannon, gaze_x, entropy):
-    fig, ax = plt.subplots()
-    ax.set_xlim(0, 800)
-    ax.set_ylim(0, 600)
-    ax.set_aspect('equal')
+    GAME_WINDOW.fill((0, 0, 0))  # Sfondo nero
 
     for bubble in bubbles:
-        bubble.draw(ax)
+        bubble.draw()
         bubble.move_down()
 
     cannon.aim(gaze_x)
-    cannon.draw(ax)
+    cannon.draw()
 
-    st.pyplot(fig)
-    time.sleep(0.1)  # Aggiungi una pausa per rallentare il ciclo di aggiornamento
+    if entropy < 1.0:  # Entropia sotto la soglia del 5%
+        fired_bubble = cannon.fire(COLORS[np.random.choice(len(COLORS))])
+        bubbles.append(fired_bubble)
+
+    pygame.display.update()
 
 def main():
     st.title("Mind Bubble Shooter")
