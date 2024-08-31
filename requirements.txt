@@ -1,6 +1,5 @@
 streamlit
 pygame
-time
 threading
 request
 collections
