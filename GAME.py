@@ -3,224 +3,141 @@ import numpy as np
 import pygame
 import time
 import threading
-import requests
 from collections import Counter
 from io import BytesIO
 from PIL import Image
 
-# Funzione per calcolare l'entropia di Shannon
-def calculate_shannon_entropy(data):
-    if len(data) == 0:
-        return 0
-    counter = Counter(data)
-    probabilities = [count / len(data) for count in counter.values()]
-    entropy = -sum(p * np.log2(p) for p in probabilities if p > 0)
-    return entropy
-
-# Funzione per generare bit casuali
-def generate_random_bits(api_key=None):
-    if api_key:
-        response = requests.get(f"https://www.random.org/integers/?num=200&min=0&max=1&col=1&base=10&format=plain&rnd=new&apikey={api_key}")
-        if response.status_code == 200:
-            return list(map(int, response.text.strip().split()))
-        else:
-            st.error("Errore nella chiamata API a random.org")
-            return np.random.randint(0, 2, 200).tolist()
-    else:
-        return np.random.randint(0, 2, 200).tolist()
+# Costanti
+COLORS = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF']
+ENTROPY_THRESHOLD = 0.02
+BOMB_THRESHOLD = 0.005
+THEORETICAL_MAX_ENTROPY = 1
 
 # Inizializzazione di Pygame
 pygame.init()
-screen_width, screen_height = 800, 600
+screen_width, screen_height = 400, 600
 screen = pygame.Surface((screen_width, screen_height))
 clock = pygame.time.Clock()
 
-# Colori
-colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-font = pygame.font.SysFont('Arial', 24)
-
-# Definizione della Bolla
-class Bubble:
-    def __init__(self, x, y, color, radius=20):
-        self.x = x
-        self.y = y
-        self.color = color
-        self.radius = radius
-        self.vx = 0
-        self.vy = -5
-        self.exploded = False
-
-    def move(self):
-        self.x += self.vx
-        self.y += self.vy
-
-    def draw(self):
-        if not self.exploded:
-            pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.radius)
-
-    def check_collision(self, other):
-        distance = np.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
-        return distance <= self.radius + other.radius
-
-# Variabili di gioco
+# Stati del Gioco
 bubbles = []
-cannon_angle = 90
+cannon_angle = 0
+shot_bubble = None
+next_bubble_color = COLORS[0]
+entropy = 1
 score = 0
-entropy_history = []
-api_key = ""
-bubble_grid = []
-grid_rows, grid_cols = 10, 8
-bubble_radius = 20
-bubbles_hit = 0
-bubble_speed = 5
+game_over = False
 
-# Funzione per inizializzare la griglia delle bolle
-def initialize_bubble_grid():
-    global bubble_grid
-    bubble_grid = []
-    for row in range(grid_rows):
-        row_bubbles = []
-        for col in range(grid_cols):
-            if row < 2:  # Solo le prime due righe iniziano con bolle
-                color = colors[np.random.randint(0, len(colors))]
-                x = bubble_radius * 2 * col + bubble_radius
-                y = bubble_radius * 2 * row + bubble_radius
-                row_bubbles.append(Bubble(x, y, color))
-            else:
-                row_bubbles.append(None)
-        bubble_grid.append(row_bubbles)
+# Funzione per calcolare l'entropia di Shannon
+def calculate_entropy(bits):
+    count = Counter(bits)
+    total_bits = len(bits)
+    entropy = -sum((freq / total_bits) * np.log2(freq / total_bits) for freq in count.values())
+    return entropy / np.log2(2)
 
-# Funzione per disegnare la griglia delle bolle
-def draw_bubble_grid():
-    for row in bubble_grid:
-        for bubble in row:
-            if bubble is not None:
-                bubble.draw()
+# Funzione per aggiornare l'entropia
+def update_entropy():
+    global entropy
+    bits = np.random.randint(0, 2, 200)
+    entropy = calculate_entropy(bits)
+
+# Funzione per inizializzare le bolle
+def initialize_bubbles():
+    global bubbles
+    bubbles = []
+    cols = 8  # numero di colonne basato su screen_width e dimensione delle bolle
+    bubble_radius = screen_width * 0.03
+    for row in range(4):
+        for col in range(cols):
+            x = col * screen_width * 0.06 + screen_width * 0.03
+            y = row * screen_width * 0.06 + screen_width * 0.03
+            color = np.random.choice(COLORS)
+            bubbles.append({'x': x, 'y': y, 'color': color})
+
+# Funzione per disegnare lo sfondo
+def draw_background(ctx):
+    gradient = pygame.Surface((screen_width, screen_height))
+    for i in range(100):
+        pygame.draw.circle(gradient, (255, 255, 255), 
+                           (np.random.randint(0, screen_width), np.random.randint(0, screen_height)), 
+                           np.random.randint(1, 3), 0)
+    ctx.blit(gradient, (0, 0))
+
+# Funzione per disegnare le bolle
+def draw_bubbles(ctx):
+    bubble_radius = int(screen_width * 0.03)
+    for bubble in bubbles:
+        pygame.draw.circle(ctx, pygame.Color(bubble['color']), (int(bubble['x']), int(bubble['y'])), bubble_radius)
+        pygame.draw.circle(ctx, pygame.Color('white'), (int(bubble['x']), int(bubble['y'])), bubble_radius, 1)
 
 # Funzione per sparare una bolla
 def shoot_bubble():
-    global bubbles
-    angle_rad = np.deg2rad(cannon_angle)
-    color = colors[np.random.randint(0, len(colors))]
-    new_bubble = Bubble(screen_width // 2, screen_height - 30, color)
-    new_bubble.vx = bubble_speed * np.cos(angle_rad)
-    new_bubble.vy = -bubble_speed * np.sin(angle_rad)
-    bubbles.append(new_bubble)
+    global shot_bubble, next_bubble_color
+    color = 'black' if entropy < BOMB_THRESHOLD else next_bubble_color
+    shot_bubble = {
+        'x': screen_width / 2,
+        'y': screen_height - screen_width * 0.03,
+        'color': color,
+        'vx': np.sin(cannon_angle) * screen_width * 0.0125,
+        'vy': -np.cos(cannon_angle) * screen_width * 0.0125
+    }
+    next_bubble_color = np.random.choice(COLORS)
 
-# Funzione per aggiornare la posizione delle bolle e gestire le collisioni
-def update_bubbles():
-    global bubbles, bubbles_hit, bubble_grid
+# Funzione per muovere le bolle sparate
+def move_bubble():
+    global shot_bubble
+    if shot_bubble:
+        shot_bubble['x'] += shot_bubble['vx']
+        shot_bubble['y'] += shot_bubble['vy']
+        if shot_bubble['x'] < 0 or shot_bubble['x'] > screen_width or shot_bubble['y'] < 0:
+            shot_bubble = None
+
+# Funzione per controllare la collisione
+def check_collision():
+    global shot_bubble, bubbles, score
+    if not shot_bubble:
+        return
+    bubble_radius = int(screen_width * 0.03)
     for bubble in bubbles:
-        bubble.move()
-        # Controlla collisioni con altre bolle nella griglia
-        for row in bubble_grid:
-            for grid_bubble in row:
-                if grid_bubble is not None and not grid_bubble.exploded:
-                    if bubble.check_collision(grid_bubble):
-                        grid_bubble.exploded = True
-                        bubbles_hit += 1
-                        bubble.exploded = True
-        # Rimuovi bolle esplose
-    bubbles = [bubble for bubble in bubbles if not bubble.exploded]
+        dx = shot_bubble['x'] - bubble['x']
+        dy = shot_bubble['y'] - bubble['y']
+        distance = np.sqrt(dx**2 + dy**2)
+        if distance < bubble_radius * 2:
+            bubbles.append({'x': shot_bubble['x'], 'y': shot_bubble['y'], 'color': shot_bubble['color']})
+            shot_bubble = None
+            score += 1
+            break
 
-# Funzione principale del gioco
+# Funzione per aggiornare il gioco
 def game_loop():
-    global bubbles, cannon_angle, score, entropy_history, api_key, bubbles_hit
-
-    initialize_bubble_grid()
-
-    running = True
-    while running:
+    global game_over
+    initialize_bubbles()
+    while not game_over:
         screen.fill((0, 0, 0))
+        draw_background(screen)
+        draw_bubbles(screen)
+        if shot_bubble:
+            move_bubble()
+            check_collision()
+        else:
+            entropy_decrease = THEORETICAL_MAX_ENTROPY - entropy
+            if entropy_decrease > ENTROPY_THRESHOLD:
+                shoot_bubble()
+        
+        # Disegna il contenuto su Streamlit
+        img = Image.frombytes('RGB', (screen_width, screen_height), pygame.image.tostring(screen, 'RGB'))
+        st.image(img)
 
-        # Generazione di bit casuali e calcolo dell'entropia
-        random_bits = generate_random_bits(api_key)
-        entropy = calculate_shannon_entropy(random_bits)
-        entropy_history.append(entropy)
-
-        # Disegna l'entropia calcolata
-        entropy_text = font.render(f"Entropia: {entropy:.2f}", True, (255, 255, 255))
-        screen.blit(entropy_text, (screen_width - 200, 20))
-
-        # Disegna le bolle
-        draw_bubble_grid()
-        update_bubbles()
-
-        # Disegna il cannone
-        pygame.draw.line(screen, (255, 255, 255), (screen_width // 2, screen_height - 30), 
-                         (screen_width // 2 + 50 * np.cos(np.deg2rad(cannon_angle)), 
-                          screen_height - 30 - 50 * np.sin(np.deg2rad(cannon_angle))), 5)
-
-        # Mostra il contatore delle bolle colpite
-        score_text = font.render(f"Bolle Colpite: {bubbles_hit}", True, (255, 255, 255))
-        screen.blit(score_text, (20, 20))
-
-        # Gestione degli eventi
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    cannon_angle = (cannon_angle + 5) % 360
-                elif event.key == pygame.K_RIGHT:
-                    cannon_angle = (cannon_angle - 5) % 360
-                elif event.key == pygame.K_SPACE:
-                    if entropy < 0.5:
-                        shoot_bubble()  # Spara una bomba
-                    elif entropy < 5:
-                        shoot_bubble()  # Spara una bolla colorata
-
-        # Aggiorna lo schermo
         pygame.display.flip()
         clock.tick(60)
-
-    pygame.quit()
-
-# Funzione per convertire lo schermo Pygame in immagine PIL
-def get_image_from_pygame():
-    image_data = pygame.image.tostring(screen, 'RGB')
-    image = Image.frombytes('RGB', (screen_width, screen_height), image_data)
-    return image
+        time.sleep(0.05)
 
 # Streamlit UI
 st.title("Mind Bubble Shooter")
-st.text("Controlli: Frecce sinistra/destra per cambiare direzione, Spazio per sparare")
 
-api_key = st.text_input("Inserisci la tua API key di random.org (opzionale):")
-
-if st.button("Inizia il gioco"):
-    # Avvia il gioco in un thread separato
+if st.button("Start Game"):
+    game_over = False
     threading.Thread(target=game_loop).start()
 
-# Mostra l'entropia calcolata
-st.write("Storico dell'entropia:")
-st.line_chart(entropy_history)
-
-# Mostra il gioco su Streamlit
-if 'running' in locals() and running:
-    image = get_image_from_pygame()
-    st.image(image)
-
-st.write("Titolo del gioco:")
-st.markdown(
-    "<h2 style='display: inline; color: #FF0000;'>M</h2>"
-    "<h2 style='display: inline; color: #00FF00;'>i</h2>"
-    "<h2 style='display: inline; color: #0000FF;'>n</h2>"
-    "<h2 style='display: inline; color: #FFFF00;'>d</h2>"
-    "<h2 style='display: inline; color: #FF00FF;'> </h2>"
-    "<h2 style='display: inline; color: #00FFFF;'>B</h2>"
-    "<h2 style='display: inline; color: #FF0000;'>u</h2>"
-    "<h2 style='display: inline; color: #00FF00;'>b</h2>"
-    "<h2 style='display: inline; color: #0000FF;'>b</h2>"
-    "<h2 style='display: inline; color: #FFFF00;'>l</h2>"
-    "<h2 style='display: inline; color: #FF00FF;'>e</h2>"
-    "<h2 style='display: inline; color: #00FFFF;'> </h2>"
-    "<h2 style='display: inline; color: #FF0000;'>S</h2>"
-    "<h2 style='display: inline; color: #00FF00;'>h</h2>"
-    "<h2 style='display: inline; color: #0000FF;'>o</h2>"
-    "<h2 style='display: inline; color: #FFFF00;'>o</h2>"
-    "<h2 style='display: inline; color: #FF00FF;'>t</h2>"
-    "<h2 style='display: inline; color: #00FFFF;'>e</h2>"
-    "<h2 style='display: inline; color: #FF0000;'>r</h2>",
-    unsafe_allow_html=True
-)
+st.write(f"Score: {score}")
+st.write(f"Entropy: {entropy:.4f}")
