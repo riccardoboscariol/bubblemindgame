@@ -5,7 +5,8 @@ import time
 import threading
 import requests
 from collections import Counter
-from io import StringIO
+from io import BytesIO
+from PIL import Image
 
 # Funzione per calcolare l'entropia di Shannon
 def calculate_shannon_entropy(data):
@@ -31,8 +32,7 @@ def generate_random_bits(api_key=None):
 # Inizializzazione di Pygame
 pygame.init()
 screen_width, screen_height = 800, 600
-screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Mind Bubble Shooter")
+screen = pygame.Surface((screen_width, screen_height))
 clock = pygame.time.Clock()
 
 # Colori
@@ -176,6 +176,12 @@ def game_loop():
 
     pygame.quit()
 
+# Funzione per convertire lo schermo Pygame in immagine PIL
+def get_image_from_pygame():
+    image_data = pygame.image.tostring(screen, 'RGB')
+    image = Image.frombytes('RGB', (screen_width, screen_height), image_data)
+    return image
+
 # Streamlit UI
 st.title("Mind Bubble Shooter")
 st.text("Controlli: Frecce sinistra/destra per cambiare direzione, Spazio per sparare")
@@ -190,5 +196,31 @@ if st.button("Inizia il gioco"):
 st.write("Storico dell'entropia:")
 st.line_chart(entropy_history)
 
+# Mostra il gioco su Streamlit
+if 'running' in locals() and running:
+    image = get_image_from_pygame()
+    st.image(image)
+
 st.write("Titolo del gioco:")
-st.markdown("<h2 style='color: #FF0000;'>M</h2><h2 style='color: #00FF00;'>i</h2><h2 style='color: #0000FF;'>n</h2><h2 style='color: #FFFF00;'>d</h2><h2 style='color: #FF00FF;'> </h2><h2 style='color: #00FFFF;'>B</h2><h2 style='color: #FF0000;'>u</h2><h2 style='color: #00FF00;'>b</h2><h2 style='color: #0000FF;'>b</h2><h2 style='color: #FFFF00;'>l</h2><h2 style='color: #FF00FF;'>e</h2><h2 style='color: #00FFFF;'> </h2><h2 style='color: #FF0000;'>S</h2><h2 style='color: #00FF00;'>h</h2><h2 style='color: #0000FF;'>o</h2><h2 style='color: #FFFF00;'>o</h2><h2 style='color: #FF00FF;'>t</h2><h2 style='color: #00FFFF;'>e</h2><h2 style='color: #FF0000;'>r</h2>", unsafe_allow_html=True)
+st.markdown(
+    "<h2 style='display: inline; color: #FF0000;'>M</h2>"
+    "<h2 style='display: inline; color: #00FF00;'>i</h2>"
+    "<h2 style='display: inline; color: #0000FF;'>n</h2>"
+    "<h2 style='display: inline; color: #FFFF00;'>d</h2>"
+    "<h2 style='display: inline; color: #FF00FF;'> </h2>"
+    "<h2 style='display: inline; color: #00FFFF;'>B</h2>"
+    "<h2 style='display: inline; color: #FF0000;'>u</h2>"
+    "<h2 style='display: inline; color: #00FF00;'>b</h2>"
+    "<h2 style='display: inline; color: #0000FF;'>b</h2>"
+    "<h2 style='display: inline; color: #FFFF00;'>l</h2>"
+    "<h2 style='display: inline; color: #FF00FF;'>e</h2>"
+    "<h2 style='display: inline; color: #00FFFF;'> </h2>"
+    "<h2 style='display: inline; color: #FF0000;'>S</h2>"
+    "<h2 style='display: inline; color: #00FF00;'>h</h2>"
+    "<h2 style='display: inline; color: #0000FF;'>o</h2>"
+    "<h2 style='display: inline; color: #FFFF00;'>o</h2>"
+    "<h2 style='display: inline; color: #FF00FF;'>t</h2>"
+    "<h2 style='display: inline; color: #00FFFF;'>e</h2>"
+    "<h2 style='display: inline; color: #FF0000;'>r</h2>",
+    unsafe_allow_html=True
+)
