@@ -1,125 +1,194 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
-import requests
+import pygame
 import time
+import threading
+import requests
+from collections import Counter
+from io import StringIO
 
-# Imposta la pagina di Streamlit
-st.set_page_config(page_title="Mind Bubble Shooter", layout="wide")
+# Funzione per calcolare l'entropia di Shannon
+def calculate_shannon_entropy(data):
+    if len(data) == 0:
+        return 0
+    counter = Counter(data)
+    probabilities = [count / len(data) for count in counter.values()]
+    entropy = -sum(p * np.log2(p) for p in probabilities if p > 0)
+    return entropy
 
-# Definisci i colori per le bolle
-COLORS = ["red", "green", "blue", "yellow", "cyan"]
+# Funzione per generare bit casuali
+def generate_random_bits(api_key=None):
+    if api_key:
+        response = requests.get(f"https://www.random.org/integers/?num=200&min=0&max=1&col=1&base=10&format=plain&rnd=new&apikey={api_key}")
+        if response.status_code == 200:
+            return list(map(int, response.text.strip().split()))
+        else:
+            st.error("Errore nella chiamata API a random.org")
+            return np.random.randint(0, 2, 200).tolist()
+    else:
+        return np.random.randint(0, 2, 200).tolist()
 
-# Classe Bubble per gestire le bolle
+# Inizializzazione di Pygame
+pygame.init()
+screen_width, screen_height = 800, 600
+screen = pygame.display.set_mode((screen_width, screen_height))
+pygame.display.set_caption("Mind Bubble Shooter")
+clock = pygame.time.Clock()
+
+# Colori
+colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+font = pygame.font.SysFont('Arial', 24)
+
+# Definizione della Bolla
 class Bubble:
-    def __init__(self, x, y, color):
+    def __init__(self, x, y, color, radius=20):
         self.x = x
         self.y = y
         self.color = color
-        self.radius = 20
+        self.radius = radius
+        self.vx = 0
+        self.vy = -5
+        self.exploded = False
 
-    def draw(self, ax):
-        bubble_circle = plt.Circle((self.x, self.y), self.radius, color=self.color, ec='black')
-        ax.add_patch(bubble_circle)
+    def move(self):
+        self.x += self.vx
+        self.y += self.vy
 
-    def move_down(self):
-        self.y -= 5  # Movimento verso il basso per ogni frame
+    def draw(self):
+        if not self.exploded:
+            pygame.draw.circle(screen, self.color, (int(self.x), int(self.y)), self.radius)
 
-# Classe Cannon per gestire il cannone
-class Cannon:
-    def __init__(self):
-        self.x = 400
-        self.y = 50
-        self.angle = 90  # Angolo di default
+    def check_collision(self, other):
+        distance = np.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
+        return distance <= self.radius + other.radius
 
-    def draw(self, ax):
-        end_x = self.x + 50 * np.cos(np.radians(self.angle))
-        end_y = self.y - 50 * np.sin(np.radians(self.angle))
-        ax.plot([self.x, end_x], [self.y, end_y], color="black")
+# Variabili di gioco
+bubbles = []
+cannon_angle = 90
+score = 0
+entropy_history = []
+api_key = ""
+bubble_grid = []
+grid_rows, grid_cols = 10, 8
+bubble_radius = 20
+bubbles_hit = 0
+bubble_speed = 5
 
-    def aim(self, gaze_x):
-        # Converti la posizione dello sguardo in un angolo
-        self.angle = np.clip(90 + (gaze_x - 400) / 10, 30, 150)
+# Funzione per inizializzare la griglia delle bolle
+def initialize_bubble_grid():
+    global bubble_grid
+    bubble_grid = []
+    for row in range(grid_rows):
+        row_bubbles = []
+        for col in range(grid_cols):
+            if row < 2:  # Solo le prime due righe iniziano con bolle
+                color = colors[np.random.randint(0, len(colors))]
+                x = bubble_radius * 2 * col + bubble_radius
+                y = bubble_radius * 2 * row + bubble_radius
+                row_bubbles.append(Bubble(x, y, color))
+            else:
+                row_bubbles.append(None)
+        bubble_grid.append(row_bubbles)
 
-# Funzione per inizializzare il gioco
-def initialize_game():
-    bubbles = [Bubble(np.random.randint(100, 700), np.random.randint(300, 600), np.random.choice(COLORS)) for _ in range(10)]
-    cannon = Cannon()
-    return bubbles, cannon
+# Funzione per disegnare la griglia delle bolle
+def draw_bubble_grid():
+    for row in bubble_grid:
+        for bubble in row:
+            if bubble is not None:
+                bubble.draw()
 
-# Funzione per aggiornare il gioco
-def update_game(bubbles, cannon, gaze_x, entropy):
-    fig, ax = plt.subplots()
-    ax.set_xlim(0, 800)
-    ax.set_ylim(0, 600)
-    ax.set_aspect('equal')
+# Funzione per sparare una bolla
+def shoot_bubble():
+    global bubbles
+    angle_rad = np.deg2rad(cannon_angle)
+    color = colors[np.random.randint(0, len(colors))]
+    new_bubble = Bubble(screen_width // 2, screen_height - 30, color)
+    new_bubble.vx = bubble_speed * np.cos(angle_rad)
+    new_bubble.vy = -bubble_speed * np.sin(angle_rad)
+    bubbles.append(new_bubble)
 
+# Funzione per aggiornare la posizione delle bolle e gestire le collisioni
+def update_bubbles():
+    global bubbles, bubbles_hit, bubble_grid
     for bubble in bubbles:
-        bubble.draw(ax)
-        bubble.move_down()
+        bubble.move()
+        # Controlla collisioni con altre bolle nella griglia
+        for row in bubble_grid:
+            for grid_bubble in row:
+                if grid_bubble is not None and not grid_bubble.exploded:
+                    if bubble.check_collision(grid_bubble):
+                        grid_bubble.exploded = True
+                        bubbles_hit += 1
+                        bubble.exploded = True
+        # Rimuovi bolle esplose
+    bubbles = [bubble for bubble in bubbles if not bubble.exploded]
 
-    cannon.aim(gaze_x)
-    cannon.draw(ax)
+# Funzione principale del gioco
+def game_loop():
+    global bubbles, cannon_angle, score, entropy_history, api_key, bubbles_hit
 
-    st.pyplot(fig)
-    time.sleep(0.1)  # Aggiungi una pausa per rallentare il ciclo di aggiornamento
+    initialize_bubble_grid()
 
-# Funzione per ottenere numeri casuali
-def fetch_random_data(api_key=None):
-    if api_key:
-        try:
-            response = requests.get(f'https://www.random.org/integers/?num=1000&min=0&max=1&col=1&base=10&format=plain&rnd=new&apikey={api_key}')
-            random_bits = list(map(int, response.text.split()))
-            return random_bits, True
-        except Exception as e:
-            st.warning(f"Errore durante la chiamata all'API di random.org: {e}")
-            return np.random.randint(0, 2, size=1000).tolist(), False
-    else:
-        # Utilizza un generatore pseudo-casuale locale se non è fornita una chiave API
-        return np.random.randint(0, 2, size=1000).tolist(), False
+    running = True
+    while running:
+        screen.fill((0, 0, 0))
 
-# Funzione principale
-def main():
-    st.title("Mind Bubble Shooter")
+        # Generazione di bit casuali e calcolo dell'entropia
+        random_bits = generate_random_bits(api_key)
+        entropy = calculate_shannon_entropy(random_bits)
+        entropy_history.append(entropy)
 
-    # Integrazione di WebGazer.js per il tracciamento degli occhi
-    st.markdown("""
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
-    <script>
-        window.onload = function() {
-            webgazer.setGazeListener(function(data, elapsedTime) {
-                if (data == null) {
-                    return;
-                }
-                var xprediction = data.x; // Coordinate x dello sguardo
-                document.getElementById("gazeX").value = xprediction;
-            }).begin();
-        }
-    </script>
-    <input type="hidden" id="gazeX" name="gazeX" value="400">
-    """, unsafe_allow_html=True)
+        # Disegna l'entropia calcolata
+        entropy_text = font.render(f"Entropia: {entropy:.2f}", True, (255, 255, 255))
+        screen.blit(entropy_text, (screen_width - 200, 20))
 
-    # Campo nascosto per catturare le coordinate dello sguardo
-    gaze_x = st.text_input("Gaze X", value="400")
+        # Disegna le bolle
+        draw_bubble_grid()
+        update_bubbles()
 
-    # Input per la chiave API di random.org
-    api_key = st.text_input("Inserisci la tua API Key per random.org (opzionale)", type="password")
+        # Disegna il cannone
+        pygame.draw.line(screen, (255, 255, 255), (screen_width // 2, screen_height - 30), 
+                         (screen_width // 2 + 50 * np.cos(np.deg2rad(cannon_angle)), 
+                          screen_height - 30 - 50 * np.sin(np.deg2rad(cannon_angle))), 5)
 
-    if 'bubbles' not in st.session_state:
-        st.session_state['bubbles'], st.session_state['cannon'] = initialize_game()
+        # Mostra il contatore delle bolle colpite
+        score_text = font.render(f"Bolle Colpite: {bubbles_hit}", True, (255, 255, 255))
+        screen.blit(score_text, (20, 20))
 
-    start_game = st.button("Inizia il Gioco")
+        # Gestione degli eventi
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    cannon_angle = (cannon_angle + 5) % 360
+                elif event.key == pygame.K_RIGHT:
+                    cannon_angle = (cannon_angle - 5) % 360
+                elif event.key == pygame.K_SPACE:
+                    if entropy < 0.5:
+                        shoot_bubble()  # Spara una bomba
+                    elif entropy < 5:
+                        shoot_bubble()  # Spara una bolla colorata
 
-    if start_game:
-        random_bits, from_api = fetch_random_data(api_key)
-        
-        # Calcola l'entropia per ogni slot di 200 cifre
-        for i in range(0, len(random_bits), 200):
-            slot = random_bits[i:i+200]
-            entropy = -np.sum(np.bincount(slot) / len(slot) * np.log2(np.bincount(slot) / len(slot)))
-            
-            if entropy < np.log2(2) * 0.05:  # Controlla se l'entropia è inferiore al 5%
-                update_game(st.session_state['bubbles'], st.session_state['cannon'], float(gaze_x), entropy)
+        # Aggiorna lo schermo
+        pygame.display.flip()
+        clock.tick(60)
 
-if __name__ == "__main__":
-    main()
+    pygame.quit()
+
+# Streamlit UI
+st.title("Mind Bubble Shooter")
+st.text("Controlli: Frecce sinistra/destra per cambiare direzione, Spazio per sparare")
+
+api_key = st.text_input("Inserisci la tua API key di random.org (opzionale):")
+
+if st.button("Inizia il gioco"):
+    # Avvia il gioco in un thread separato
+    threading.Thread(target=game_loop).start()
+
+# Mostra l'entropia calcolata
+st.write("Storico dell'entropia:")
+st.line_chart(entropy_history)
+
+st.write("Titolo del gioco:")
+st.markdown("<h2 style='color: #FF0000;'>M</h2><h2 style='color: #00FF00;'>i</h2><h2 style='color: #0000FF;'>n</h2><h2 style='color: #FFFF00;'>d</h2><h2 style='color: #FF00FF;'> </h2><h2 style='color: #00FFFF;'>B</h2><h2 style='color: #FF0000;'>u</h2><h2 style='color: #00FF00;'>b</h2><h2 style='color: #0000FF;'>b</h2><h2 style='color: #FFFF00;'>l</h2><h2 style='color: #FF00FF;'>e</h2><h2 style='color: #00FFFF;'> </h2><h2 style='color: #FF0000;'>S</h2><h2 style='color: #00FF00;'>h</h2><h2 style='color: #0000FF;'>o</h2><h2 style='color: #FFFF00;'>o</h2><h2 style='color: #FF00FF;'>t</h2><h2 style='color: #00FFFF;'>e</h2><h2 style='color: #FF0000;'>r</h2>", unsafe_allow_html=True)
