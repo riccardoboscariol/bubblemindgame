@@ -1,5 +1,11 @@
 streamlit
 pygame
+time
+threading
+request
+collections
+Counter
+StringIO
 numpy
 requests
 matplotlib
