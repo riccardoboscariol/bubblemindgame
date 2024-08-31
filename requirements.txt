@@ -1,5 +1,5 @@
-streamlit==1.38.0
-pygame==2.6.0
+streamlit==1.25.0
+pygame==2.5.0
 numpy==1.26.0
-requests==2.31.0
-rich==13.7.0
+Pillow==9.1.1
+
