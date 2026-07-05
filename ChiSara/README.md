@@ -20,6 +20,7 @@ app/src/main/java/com/chisara/app/
 │   ├── db/                       # Room: entità, DAO, database, converters
 │   │   ├── entity/               # Contact, NotificationEvent, GuessAttempt
 │   │   └── dao/
+│   ├── settings/                 # DataStore: pacchetti tracciati + penalità (configurabili)
 │   └── repository/GameRepository.kt   # unico source of truth (write: intercettazione, read: UI)
 ├── notification/
 │   ├── ChiSaraNotificationListener.kt # NotificationListenerService + logica anti-sbirciatina
@@ -140,7 +141,8 @@ Punti su cui il design ha dovuto scendere a compromessi con le API Android:
 ## Stato dell'MVP
 
 Implementato: struttura Gradle, listener con anti-sbirciatina, Room (3 entità),
-scoring puro + unit test, e le schermate Compose (Onboarding, Home, Guess,
-Reveal, Statistiche). Prossimi passi suggeriti: gestione gruppi, impostazioni
-per la lista pacchetti/penalità, grafico andamento nel tempo, e hardening dei
-casi limite di re-post.
+scoring puro + unit test, schermate Compose (Onboarding, Home, Guess, Reveal,
+Statistiche con **grafico andamento del punteggio**) e una schermata
+**Impostazioni** (DataStore) per scegliere le app tracciate e la penalità per le
+risposte sbagliate. Prossimi passi suggeriti: gestione dei **messaggi di
+gruppo**, hardening dei casi limite di re-post, e statistiche più ricche.

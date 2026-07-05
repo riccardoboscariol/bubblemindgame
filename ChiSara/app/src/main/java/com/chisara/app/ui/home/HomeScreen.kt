@@ -43,6 +43,7 @@ fun HomeScreen(
     viewModel: GameViewModel,
     onGuess: (Long) -> Unit,
     onStats: () -> Unit,
+    onSettings: () -> Unit,
     onOnboarding: () -> Unit
 ) {
     val pending by viewModel.pendingEvents.collectAsStateWithLifecycle()
@@ -63,8 +64,8 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Chi Sarà") },
                 actions = {
-                    IconButton(onClick = onOnboarding) {
-                        Icon(Icons.Filled.Settings, contentDescription = "Permessi")
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Impostazioni")
                     }
                     IconButton(onClick = onStats) {
                         Icon(Icons.Filled.BarChart, contentDescription = "Statistiche")

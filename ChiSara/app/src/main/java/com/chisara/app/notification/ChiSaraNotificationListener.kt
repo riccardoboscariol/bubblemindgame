@@ -7,9 +7,12 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.chisara.app.data.repository.GameRepository
+import com.chisara.app.data.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 /**
@@ -28,14 +31,22 @@ class ChiSaraNotificationListener : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val repository by lazy { GameRepository(applicationContext) }
+    private val settingsRepository by lazy { SettingsRepository(applicationContext) }
 
     /** Recently handled notification keys → timestamp, to dedupe rapid re-posts. */
     private val recentlyHandled = HashMap<String, Long>()
 
+    /**
+     * Cached tracked-package set kept in sync with settings, so the hot
+     * [onNotificationPosted] path reads it synchronously without touching DataStore.
+     */
+    @Volatile
+    private var trackedPackages: Set<String> = NotificationConfig.trackedPackages
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName ?: return
         if (pkg == packageName) return
-        if (pkg !in NotificationConfig.trackedPackages) return
+        if (pkg !in trackedPackages) return
 
         val notification = sbn.notification ?: return
         if (shouldSkip(sbn, notification)) return
@@ -89,6 +100,15 @@ class ChiSaraNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         Log.i(TAG, "Notification listener connected")
+        // Keep the tracked-package cache in sync with the user's settings.
+        settingsRepository.settings
+            .onEach { trackedPackages = it.trackedPackages }
+            .launchIn(scope)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
     }
 
     // ---- Extraction helpers -----------------------------------------------------

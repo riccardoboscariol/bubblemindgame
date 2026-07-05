@@ -8,6 +8,8 @@ import com.chisara.app.data.db.dao.ContactAccuracy
 import com.chisara.app.data.db.entity.Contact
 import com.chisara.app.data.db.entity.NotificationEvent
 import com.chisara.app.data.repository.GameRepository
+import com.chisara.app.data.settings.AppSettings
+import com.chisara.app.data.settings.SettingsRepository
 import com.chisara.app.notification.NotificationConfig
 import com.chisara.app.permissions.PermissionUtils
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -48,6 +51,21 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: GameRepository =
         (application as ChiSaraApp).repository
+    private val settingsRepository: SettingsRepository =
+        (application as ChiSaraApp).settingsRepository
+
+    val settings: StateFlow<AppSettings> =
+        settingsRepository.settings
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppSettings())
+
+    /** Cumulative score after each valid attempt, for the trend chart. */
+    val scoreTrend: StateFlow<List<Int>> =
+        repository.observeAttempts()
+            .map { attempts ->
+                var running = 0
+                attempts.map { running += it.scoreAwarded; running }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _permissions = MutableStateFlow(PermissionState())
     val permissions: StateFlow<PermissionState> = _permissions.asStateFlow()
@@ -111,5 +129,19 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun clearOutcome() {
         _outcome.value = null
         _guessScreen.value = null
+    }
+
+    // ---- Settings ---------------------------------------------------------------
+
+    fun setPackageTracked(pkg: String, tracked: Boolean) {
+        viewModelScope.launch { settingsRepository.setPackageTracked(pkg, tracked) }
+    }
+
+    fun setPenaltyEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setPenaltyEnabled(enabled) }
+    }
+
+    fun setPenaltyValue(value: Int) {
+        viewModelScope.launch { settingsRepository.setPenaltyValue(value) }
     }
 }

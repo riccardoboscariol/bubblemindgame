@@ -10,6 +10,7 @@ import com.chisara.app.ui.guess.GuessScreen
 import com.chisara.app.ui.home.HomeScreen
 import com.chisara.app.ui.onboarding.OnboardingScreen
 import com.chisara.app.ui.reveal.RevealScreen
+import com.chisara.app.ui.settings.SettingsScreen
 import com.chisara.app.ui.stats.StatsScreen
 import com.chisara.app.viewmodel.GameViewModel
 
@@ -46,6 +47,7 @@ fun ChiSaraNavHost(
                 viewModel = viewModel,
                 onGuess = { eventId -> navController.navigate(Routes.guess(eventId)) },
                 onStats = { navController.navigate(Routes.STATS) },
+                onSettings = { navController.navigate(Routes.SETTINGS) },
                 onOnboarding = { navController.navigate(Routes.ONBOARDING) }
             )
         }
@@ -81,6 +83,13 @@ fun ChiSaraNavHost(
 
         composable(Routes.STATS) {
             StatsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SETTINGS) {
+            SettingsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() }
             )

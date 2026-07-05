@@ -1,11 +1,13 @@
 package com.chisara.app.ui.stats
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +28,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -40,6 +45,7 @@ fun StatsScreen(
     onBack: () -> Unit
 ) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
+    val trend by viewModel.scoreTrend.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -73,12 +79,31 @@ fun StatsScreen(
                 }
             }
 
+            if (trend.size >= 2) {
+                item {
+                    SectionTitle("Andamento del punteggio")
+                }
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(
+                                "Punteggio cumulato su ${trend.size} risposte",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            TrendChart(
+                                values = trend,
+                                lineColor = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.fillMaxWidth().height(120.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             item {
-                Text(
-                    "Su chi sei più bravo a indovinare",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                SectionTitle("Su chi sei più bravo a indovinare")
             }
 
             val ranked = stats.accuracyByContact
@@ -110,6 +135,40 @@ fun StatsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+}
+
+/** Minimal line chart of a monotonically-growing cumulative score. */
+@Composable
+private fun TrendChart(
+    values: List<Int>,
+    lineColor: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
+) {
+    val maxValue = (values.maxOrNull() ?: 0).coerceAtLeast(1)
+    Canvas(modifier = modifier) {
+        if (values.size < 2) return@Canvas
+        val stepX = size.width / (values.size - 1)
+        val path = Path()
+        values.forEachIndexed { index, v ->
+            val x = stepX * index
+            val y = size.height - (v.toFloat() / maxValue) * size.height
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        drawPath(
+            path = path,
+            color = lineColor,
+            style = Stroke(width = 6f)
+        )
+        // End marker.
+        val lastX = size.width
+        val lastY = size.height - (values.last().toFloat() / maxValue) * size.height
+        drawCircle(color = lineColor, radius = 8f, center = Offset(lastX, lastY))
     }
 }
 

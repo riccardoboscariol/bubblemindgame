@@ -7,6 +7,7 @@ import com.chisara.app.data.db.entity.Contact
 import com.chisara.app.data.db.entity.EventStatus
 import com.chisara.app.data.db.entity.GuessAttempt
 import com.chisara.app.data.db.entity.NotificationEvent
+import com.chisara.app.data.settings.SettingsRepository
 import com.chisara.app.notification.BlindNotifier
 import com.chisara.app.scoring.Scoring
 import com.chisara.app.usage.UsageChecker
@@ -25,6 +26,7 @@ class GameRepository(context: Context) {
     private val guesses = db.guessAttemptDao()
     private val blindNotifier = BlindNotifier(appContext)
     private val usageChecker = UsageChecker(appContext)
+    private val settingsRepository = SettingsRepository(appContext)
 
     // ---- Read side (for the UI) -------------------------------------------------
 
@@ -124,10 +126,13 @@ class GameRepository(context: Context) {
         eventId: Long,
         guessedName: String,
         now: Long,
-        config: Scoring.Config = Scoring.Config()
+        config: Scoring.Config? = null
     ): GuessOutcome {
         val event = events.findById(eventId) ?: return GuessOutcome.Unavailable
         if (event.status != EventStatus.PENDING) return GuessOutcome.Unavailable
+
+        // Fall back to the user's configured scoring (wrong-answer penalty).
+        val scoringConfig = config ?: settingsRepository.current().toScoringConfig()
 
         blindNotifier.cancelBlind(event.replacementNotificationId)
 
@@ -156,7 +161,7 @@ class GameRepository(context: Context) {
         val distinct = contacts.distinctContactsForPackage(event.sourcePackage)
         val prior = Scoring.priorProbability(messageCount, totalInApp, distinct)
         val bits = Scoring.selfInformationBits(prior)
-        val score = Scoring.score(correct, messageCount, totalInApp, distinct, config)
+        val score = Scoring.score(correct, messageCount, totalInApp, distinct, scoringConfig)
 
         events.update(event.copy(status = EventStatus.VALID, responseTs = now))
         guesses.insert(
