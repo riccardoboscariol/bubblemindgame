@@ -24,7 +24,8 @@ class SettingsRepository(context: Context) {
             trackedPackages = prefs[KEY_TRACKED] ?: NotificationConfig.trackedPackages,
             penaltyEnabled = prefs[KEY_PENALTY_ENABLED] ?: false,
             wrongAnswerPenalty = prefs[KEY_PENALTY_VALUE] ?: DEFAULT_PENALTY,
-            includeGroups = prefs[KEY_INCLUDE_GROUPS] ?: false
+            includeGroups = prefs[KEY_INCLUDE_GROUPS] ?: false,
+            playWithPreviewOn = prefs[KEY_PLAY_WITH_PREVIEW] ?: true
         )
     }
 
@@ -49,11 +50,16 @@ class SettingsRepository(context: Context) {
         store.edit { it[KEY_INCLUDE_GROUPS] = include }
     }
 
+    suspend fun setPlayWithPreviewOn(enabled: Boolean) {
+        store.edit { it[KEY_PLAY_WITH_PREVIEW] = enabled }
+    }
+
     private companion object {
         val KEY_TRACKED = stringSetPreferencesKey("tracked_packages")
         val KEY_PENALTY_ENABLED = booleanPreferencesKey("penalty_enabled")
         val KEY_PENALTY_VALUE = intPreferencesKey("penalty_value")
         val KEY_INCLUDE_GROUPS = booleanPreferencesKey("include_groups")
+        val KEY_PLAY_WITH_PREVIEW = booleanPreferencesKey("play_with_preview_on")
         const val DEFAULT_PENALTY = 5
     }
 }

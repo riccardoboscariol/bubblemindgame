@@ -108,32 +108,38 @@ permission, vanno concessi dalle Impostazioni di sistema — l'app fa il deep li
 2. **Accesso all'utilizzo** (`Usage access` / `PACKAGE_USAGE_STATS`) → per l'anti-sbirciatina.
 3. Su Android 13+ anche il permesso **notifiche** (`POST_NOTIFICATIONS`).
 
-Poi **disattiva le anteprime dei messaggi** nelle app sorgente (istruzioni
-in-app), altrimenti il testo è già visibile nella tendina e il gioco non ha senso.
+Di default è attiva la modalità **"gioca anche con le anteprime attive"**: l'app
+intercetta il messaggio, prende il mittente e **nasconde il testo al posto tuo**.
+Così funziona su WhatsApp/Telegram/Instagram con le impostazioni di fabbrica,
+senza dover disattivare le anteprime. In Impostazioni puoi passare alla modalità
+"pura" (gioca solo con i messaggi già oscurati dall'app).
 
 ### Come testarlo
-1. Concedi i permessi e disattiva le anteprime (almeno su una app, es. Telegram).
-2. Fatti mandare un messaggio da un contatto.
+1. Concedi i due permessi dall'onboarding.
+2. Fatti mandare un messaggio da un contatto (funziona su tutte e tre le app).
 3. Dovresti vedere **solo** "📩 Nuovo messaggio misterioso — tocca per indovinare".
 4. Apri l'app, prova a indovinare **senza** aprire prima l'app sorgente.
-5. Se apri WhatsApp/Telegram prima di rispondere → "hai sbirciato", 0 punti.
+5. Se apri WhatsApp/Telegram/Instagram prima di rispondere → "hai sbirciato", 0 punti.
 
 ## ⚠️ Limitazioni note / note di fattibilità
 
 Punti su cui il design ha dovuto scendere a compromessi con le API Android:
 
-- **Anteprime vs. identità del mittente.** Su alcune app (in particolare
-  WhatsApp) l'interruttore "Mostra anteprima" nasconde *sia* il testo *sia* il
-  nome del mittente: con l'anteprima **off**, la notifica riporta solo "WhatsApp
-  / Nuovo messaggio" e **il mittente non è disponibile** → non possiamo sapere
-  chi è, quindi la notifica viene scartata. Il gioco funziona nel punto dolce in
-  cui la notifica **contiene il nome del mittente ma non il testo** (tipico di
-  Telegram con "anteprima messaggio" disattivata). WhatsApp è il caso più
-  ostico; consiglio di testare prima con **Telegram**.
-- **Race col drawer.** Cancelliamo e sostituiamo la notifica in
+- **Anteprime e identità del mittente.** Con le anteprime **attive** (default di
+  tutte e tre le app) la notifica contiene mittente + testo: la modalità di
+  default "gioca anche con le anteprime attive" intercetta e nasconde il testo,
+  usando il **titolo** come mittente. Con le anteprime **disattivate**, quasi
+  tutte le app nascondono *anche il nome del mittente* (title = "WhatsApp",
+  "Nuovo messaggio"): in quel caso non sappiamo chi è e la notifica viene
+  scartata. Quindi, controintuitivamente, per giocare conviene tenere le
+  anteprime **attive** e lasciar fare all'app.
+- **Race col drawer / heads-up.** Cancelliamo e sostituiamo la notifica in
   `onNotificationPosted`, ma se è già stata mostrata come *heads-up* per una
-  frazione di secondo l'utente potrebbe intravederla. È intrinseco all'approccio
-  `NotificationListenerService`.
+  frazione di secondo l'utente potrebbe intravederla. È il compromesso della
+  modalità "gioca con le anteprime attive" e intrinseco a
+  `NotificationListenerService`; la modalità "pura" lo evita ma fa partire molti
+  meno round. L'anti-sbirciatina via UsageStats copre l'apertura dell'app, non
+  l'occhiata di striscio al banner.
 - **Re-post delle app.** WhatsApp/Telegram aggiornano la stessa notifica più
   volte ("sta scrivendo…", "N messaggi"). C'è un **dedupe** su `sbn.key` entro
   una finestra breve; i messaggi multipli ravvicinati restano un'area da

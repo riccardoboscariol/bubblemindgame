@@ -150,4 +150,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun setIncludeGroups(include: Boolean) {
         viewModelScope.launch { settingsRepository.setIncludeGroups(include) }
     }
+
+    fun setPlayWithPreviewOn(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setPlayWithPreviewOn(enabled) }
+    }
 }

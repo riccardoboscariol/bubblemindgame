@@ -88,6 +88,34 @@ fun SettingsScreen(
                 }
             }
 
+            SectionCard(title = "Quando far partire il gioco") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Gioca anche con le anteprime attive")
+                        Text(
+                            if (settings.playWithPreviewOn)
+                                "Intercetta anche i messaggi con testo visibile e lo nasconde al posto tuo. " +
+                                    "Così funziona con WhatsApp/Telegram/Instagram alle impostazioni di default " +
+                                    "(la notifica originale può però lampeggiare un istante)."
+                            else
+                                "Solo i messaggi già oscurati dall'app entrano nel gioco (più \"puro\", " +
+                                    "ma fa partire molti meno round).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Switch(
+                        checked = settings.playWithPreviewOn,
+                        onCheckedChange = { viewModel.setPlayWithPreviewOn(it) }
+                    )
+                }
+            }
+
             SectionCard(title = "Messaggi di gruppo") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

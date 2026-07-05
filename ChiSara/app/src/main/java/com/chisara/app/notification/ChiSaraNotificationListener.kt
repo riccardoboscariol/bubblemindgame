@@ -75,8 +75,9 @@ class ChiSaraNotificationListener : NotificationListenerService() {
         }
 
         val body = extractBody(extras)
-        if (isReadablePreview(body)) {
-            // Previews are on: the user can already read it. Not part of the game.
+        if (isReadablePreview(body) && !settings.playWithPreviewOn) {
+            // Strict mode: previews are on, the user could read it in the shade — skip.
+            // In relaxed mode we keep it and hide the text ourselves via the blind notification.
             return
         }
 

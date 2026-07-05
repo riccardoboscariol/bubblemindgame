@@ -15,7 +15,14 @@ data class AppSettings(
     /** Points applied on a wrong guess when [penaltyEnabled]; stored as a positive magnitude. */
     val wrongAnswerPenalty: Int = 5,
     /** When true, group messages also enter the game (guess who wrote in the group). */
-    val includeGroups: Boolean = false
+    val includeGroups: Boolean = false,
+    /**
+     * When true, notifications whose body text is readable (previews on) still enter
+     * the game — we hide the text ourselves in the blind notification. This is what
+     * makes the game trigger on all three apps with their default settings. The trade-off
+     * is that the original notification may flash as a heads-up before we replace it.
+     */
+    val playWithPreviewOn: Boolean = true
 ) {
     /** Turns these settings into the pure [Scoring.Config] used by the scorer. */
     fun toScoringConfig(): Scoring.Config =
