@@ -154,4 +154,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     fun setPlayWithPreviewOn(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setPlayWithPreviewOn(enabled) }
     }
+
+    fun setOnlyWhenNotVisible(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setOnlyWhenNotVisible(enabled) }
+    }
 }

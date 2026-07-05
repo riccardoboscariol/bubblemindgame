@@ -133,13 +133,15 @@ Punti su cui il design ha dovuto scendere a compromessi con le API Android:
   "Nuovo messaggio"): in quel caso non sappiamo chi è e la notifica viene
   scartata. Quindi, controintuitivamente, per giocare conviene tenere le
   anteprime **attive** e lasciar fare all'app.
-- **Race col drawer / heads-up.** Cancelliamo e sostituiamo la notifica in
-  `onNotificationPosted`, ma se è già stata mostrata come *heads-up* per una
-  frazione di secondo l'utente potrebbe intravederla. È il compromesso della
-  modalità "gioca con le anteprime attive" e intrinseco a
-  `NotificationListenerService`; la modalità "pura" lo evita ma fa partire molti
-  meno round. L'anti-sbirciatina via UsageStats copre l'apertura dell'app, non
-  l'occhiata di striscio al banner.
+- **Race col drawer / heads-up.** `NotificationListenerService` viene avvisato
+  *dopo* che la notifica è stata pubblicata: non c'è modo di impedire un eventuale
+  banner *heads-up* prima di cancellarla. Per questo esiste la **modalità ricerca**
+  (`onlyWhenNotVisible`, attiva di default): controlla l'importanza effettiva della
+  notifica tramite `Ranking.getImportance()` e conta il messaggio **solo se non
+  sarebbe apparso come banner** (importanza sotto `HIGH`). In pratica l'utente
+  imposta le notifiche dell'app di messaggistica su "silenzioso / nessun pop-up" e
+  solo quei messaggi — che non ha potuto vedere — entrano nel gioco. L'anti-
+  sbirciatina via UsageStats resta a copertura dell'apertura dell'app.
 - **Re-post delle app.** WhatsApp/Telegram aggiornano la stessa notifica più
   volte ("sta scrivendo…", "N messaggi"). C'è un **dedupe** su `sbn.key` entro
   una finestra breve; i messaggi multipli ravvicinati restano un'area da

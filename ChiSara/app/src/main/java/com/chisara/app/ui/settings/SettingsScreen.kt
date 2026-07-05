@@ -95,15 +95,40 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(Modifier.weight(1f)) {
+                        Text("Conta solo i messaggi non visibili (modalità ricerca)")
+                        Text(
+                            if (settings.onlyWhenNotVisible)
+                                "Un messaggio entra nel gioco SOLO se la sua notifica non compare come " +
+                                    "banner pop-up (cioè non hai potuto vederne il mittente). Imposta le " +
+                                    "notifiche di Telegram/WhatsApp/Instagram su \"Silenzioso / nessun pop-up\" " +
+                                    "perché i messaggi vengano contati."
+                            else
+                                "Conta i messaggi anche se la notifica compare come banner (meno rigoroso).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Switch(
+                        checked = settings.onlyWhenNotVisible,
+                        onCheckedChange = { viewModel.setOnlyWhenNotVisible(it) }
+                    )
+                }
+
+                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f)) {
                         Text("Gioca anche con le anteprime attive")
                         Text(
                             if (settings.playWithPreviewOn)
-                                "Intercetta anche i messaggi con testo visibile e lo nasconde al posto tuo. " +
-                                    "Così funziona con WhatsApp/Telegram/Instagram alle impostazioni di default " +
-                                    "(la notifica originale può però lampeggiare un istante)."
+                                "Intercetta anche i messaggi con testo visibile e lo nasconde al posto tuo."
                             else
-                                "Solo i messaggi già oscurati dall'app entrano nel gioco (più \"puro\", " +
-                                    "ma fa partire molti meno round).",
+                                "Solo i messaggi già oscurati dall'app entrano nel gioco.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

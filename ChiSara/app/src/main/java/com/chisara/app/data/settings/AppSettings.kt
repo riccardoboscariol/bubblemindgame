@@ -22,7 +22,15 @@ data class AppSettings(
      * makes the game trigger on all three apps with their default settings. The trade-off
      * is that the original notification may flash as a heads-up before we replace it.
      */
-    val playWithPreviewOn: Boolean = true
+    val playWithPreviewOn: Boolean = true,
+    /**
+     * Research/strict mode. When true, a message only becomes a guessing round if its
+     * notification would NOT be shown as a heads-up banner (channel importance below
+     * HIGH) — i.e. the user could not have seen the sender pop up. Guarantees the game
+     * only counts messages that were genuinely hidden. Requires the user to set the
+     * messaging app's notifications to "silent / no pop-up".
+     */
+    val onlyWhenNotVisible: Boolean = true
 ) {
     /** Turns these settings into the pure [Scoring.Config] used by the scorer. */
     fun toScoringConfig(): Scoring.Config =

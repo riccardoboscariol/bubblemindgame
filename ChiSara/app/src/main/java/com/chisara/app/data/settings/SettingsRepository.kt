@@ -25,7 +25,8 @@ class SettingsRepository(context: Context) {
             penaltyEnabled = prefs[KEY_PENALTY_ENABLED] ?: false,
             wrongAnswerPenalty = prefs[KEY_PENALTY_VALUE] ?: DEFAULT_PENALTY,
             includeGroups = prefs[KEY_INCLUDE_GROUPS] ?: false,
-            playWithPreviewOn = prefs[KEY_PLAY_WITH_PREVIEW] ?: true
+            playWithPreviewOn = prefs[KEY_PLAY_WITH_PREVIEW] ?: true,
+            onlyWhenNotVisible = prefs[KEY_ONLY_WHEN_NOT_VISIBLE] ?: true
         )
     }
 
@@ -54,12 +55,17 @@ class SettingsRepository(context: Context) {
         store.edit { it[KEY_PLAY_WITH_PREVIEW] = enabled }
     }
 
+    suspend fun setOnlyWhenNotVisible(enabled: Boolean) {
+        store.edit { it[KEY_ONLY_WHEN_NOT_VISIBLE] = enabled }
+    }
+
     private companion object {
         val KEY_TRACKED = stringSetPreferencesKey("tracked_packages")
         val KEY_PENALTY_ENABLED = booleanPreferencesKey("penalty_enabled")
         val KEY_PENALTY_VALUE = intPreferencesKey("penalty_value")
         val KEY_INCLUDE_GROUPS = booleanPreferencesKey("include_groups")
         val KEY_PLAY_WITH_PREVIEW = booleanPreferencesKey("play_with_preview_on")
+        val KEY_ONLY_WHEN_NOT_VISIBLE = booleanPreferencesKey("only_when_not_visible")
         const val DEFAULT_PENALTY = 5
     }
 }

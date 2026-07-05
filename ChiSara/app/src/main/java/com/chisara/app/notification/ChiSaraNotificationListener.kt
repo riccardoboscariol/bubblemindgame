@@ -1,6 +1,7 @@
 package com.chisara.app.notification
 
 import android.app.Notification
+import android.app.NotificationManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -68,6 +69,13 @@ class ChiSaraNotificationListener : NotificationListenerService() {
             // In a group we can only play if we know WHO wrote (a distinct person,
             // not just the group name).
             if (msg.groupName == null || sender.equals(msg.groupName, ignoreCase = true)) return
+        }
+
+        // Research/strict mode: only count messages that could NOT be seen — i.e. the
+        // notification is silent (no heads-up banner). If it would pop up as a banner,
+        // the user could have read the sender, so it is not a valid round.
+        if (settings.onlyWhenNotVisible && isVisibleHeadsUp(sbn.key)) {
+            return
         }
 
         val body = extractBody(extras)
@@ -165,6 +173,25 @@ class ChiSaraNotificationListener : NotificationListenerService() {
         }
         val groupName = if (isGroup) (conversationTitle ?: title) else null
         return ExtractedMessage(sender = sender, groupName = groupName, isGroup = isGroup)
+    }
+
+    /**
+     * True if this notification would surface to the user as a heads-up banner (its
+     * effective channel importance is HIGH or above), meaning the sender could be seen.
+     * Unknown importance is treated as visible, so uncertain cases don't count as rounds.
+     */
+    private fun isVisibleHeadsUp(key: String): Boolean {
+        return try {
+            val ranking = NotificationListenerService.Ranking()
+            val map = currentRanking
+            if (map != null && map.getRanking(key, ranking)) {
+                ranking.importance >= NotificationManager.IMPORTANCE_HIGH
+            } else {
+                true
+            }
+        } catch (t: Throwable) {
+            true
+        }
     }
 
     private fun extractBody(extras: android.os.Bundle): String? {
