@@ -79,6 +79,15 @@ Esegui i test:
 3. Collega il telefono via USB con il **debug USB** attivo.
 4. Premi **Run ▶** e scegli il dispositivo.
 
+### Opzione C — scarica l'APK dalla CI (senza compilare nulla)
+Ad ogni push su questo repo, la GitHub Action **Android CI**
+(`.github/workflows/android.yml`) esegue gli unit test e compila l'APK debug.
+Vai su **Actions → ultimo run → Artifacts** e scarica **`chisara-debug-apk`**,
+poi installalo sul telefono:
+```bash
+adb install -r app-debug.apk
+```
+
 ### Opzione B — riga di comando
 ```bash
 cd ChiSara
@@ -152,7 +161,10 @@ Statistiche con **grafico andamento del punteggio**), schermata **Impostazioni**
 messaggi di gruppo** (indovina chi ha scritto nel gruppo), e test strumentati
 Room in-memory sul flusso intercettazione→guess.
 
-Prossimi passi suggeriti (post-MVP): migrazioni Room reali al posto della
-`fallbackToDestructiveMigration`, hardening dei casi limite di re-post/gruppi su
-più OEM, statistiche più ricche, e la *Sensitive Permissions Declaration* per la
-pubblicazione.
+Include anche una **migrazione Room 1→2** (niente più azzeramento dello storico
+al cambio schema) e una **GitHub Action** che builda l'APK debug + gira i test ad
+ogni push, con l'APK scaricabile come artifact.
+
+Prossimi passi suggeriti (post-MVP): hardening dei casi limite di
+re-post/gruppi su più OEM, statistiche più ricche, e la *Sensitive Permissions
+Declaration* per la pubblicazione.

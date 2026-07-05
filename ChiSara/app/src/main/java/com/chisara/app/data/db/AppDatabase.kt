@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.chisara.app.data.db.dao.ContactDao
 import com.chisara.app.data.db.dao.GuessAttemptDao
 import com.chisara.app.data.db.dao.NotificationEventDao
@@ -27,6 +29,13 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        /** v1 → v2: adds the nullable group name to notification_events. */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notification_events ADD COLUMN groupName TEXT")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -34,9 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "chisara.db"
                 )
-                    // Pre-release MVP: a schema change wipes local game history rather
-                    // than shipping migrations. Replace with real migrations before release.
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_1_2)
                     .build().also { INSTANCE = it }
             }
     }
