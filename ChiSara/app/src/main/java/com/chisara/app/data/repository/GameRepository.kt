@@ -60,7 +60,8 @@ class GameRepository(context: Context) {
     suspend fun recordInterceptedNotification(
         senderName: String,
         sourcePackage: String,
-        arrivalTs: Long
+        arrivalTs: Long,
+        groupName: String? = null
     ): Long {
         val contactId = upsertContactAndIncrement(senderName, sourcePackage, arrivalTs)
 
@@ -72,6 +73,7 @@ class GameRepository(context: Context) {
             sourcePackage = sourcePackage,
             arrivalTs = arrivalTs,
             status = EventStatus.PENDING,
+            groupName = groupName,
             replacementNotificationId = 0
         )
         val eventId = events.insert(event)

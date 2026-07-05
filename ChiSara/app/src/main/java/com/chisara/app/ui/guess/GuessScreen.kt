@@ -91,10 +91,22 @@ fun GuessScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Text(
-                    "Chi te l'ha mandato? Scegli un contatto o scrivi un nome.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                if (state.groupName != null) {
+                    Text(
+                        "Nel gruppo \"${state.groupName}\"",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Chi ha scritto nel gruppo? Scegli un contatto o scrivi un nome.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                } else {
+                    Text(
+                        "Chi te l'ha mandato? Scegli un contatto o scrivi un nome.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
 
             OutlinedTextField(

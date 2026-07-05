@@ -36,6 +36,10 @@ data class NotificationEvent(
     val status: EventStatus = EventStatus.PENDING,
     /** Reason a PENDING event was invalidated, for display; null while valid/pending. */
     val invalidationReason: String? = null,
+    /** Group/conversation name when this is a group message; null for 1:1 chats. */
+    val groupName: String? = null,
     /** Id of the replacement notification we posted, so we can dismiss it once answered. */
     val replacementNotificationId: Int
-)
+) {
+    val isGroup: Boolean get() = groupName != null
+}

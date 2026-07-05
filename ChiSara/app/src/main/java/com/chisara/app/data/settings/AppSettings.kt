@@ -13,7 +13,9 @@ data class AppSettings(
     /** When true, a wrong guess costs [wrongAnswerPenalty] points instead of 0. */
     val penaltyEnabled: Boolean = false,
     /** Points applied on a wrong guess when [penaltyEnabled]; stored as a positive magnitude. */
-    val wrongAnswerPenalty: Int = 5
+    val wrongAnswerPenalty: Int = 5,
+    /** When true, group messages also enter the game (guess who wrote in the group). */
+    val includeGroups: Boolean = false
 ) {
     /** Turns these settings into the pure [Scoring.Config] used by the scorer. */
     fun toScoringConfig(): Scoring.Config =

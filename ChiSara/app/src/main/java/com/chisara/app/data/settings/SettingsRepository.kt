@@ -23,7 +23,8 @@ class SettingsRepository(context: Context) {
         AppSettings(
             trackedPackages = prefs[KEY_TRACKED] ?: NotificationConfig.trackedPackages,
             penaltyEnabled = prefs[KEY_PENALTY_ENABLED] ?: false,
-            wrongAnswerPenalty = prefs[KEY_PENALTY_VALUE] ?: DEFAULT_PENALTY
+            wrongAnswerPenalty = prefs[KEY_PENALTY_VALUE] ?: DEFAULT_PENALTY,
+            includeGroups = prefs[KEY_INCLUDE_GROUPS] ?: false
         )
     }
 
@@ -44,10 +45,15 @@ class SettingsRepository(context: Context) {
         store.edit { it[KEY_PENALTY_VALUE] = value.coerceIn(0, 100) }
     }
 
+    suspend fun setIncludeGroups(include: Boolean) {
+        store.edit { it[KEY_INCLUDE_GROUPS] = include }
+    }
+
     private companion object {
         val KEY_TRACKED = stringSetPreferencesKey("tracked_packages")
         val KEY_PENALTY_ENABLED = booleanPreferencesKey("penalty_enabled")
         val KEY_PENALTY_VALUE = intPreferencesKey("penalty_value")
+        val KEY_INCLUDE_GROUPS = booleanPreferencesKey("include_groups")
         const val DEFAULT_PENALTY = 5
     }
 }

@@ -64,7 +64,8 @@ punteggio   = round(K * -log2(p)),  clampato in [0, maxScore]                   
 Esegui i test:
 
 ```bash
-./gradlew test            # esegue ScoringTest (JVM, niente device)
+./gradlew test               # unit test JVM: ScoringTest + AppSettingsTest (niente device)
+./gradlew connectedAndroidTest   # test strumentati Room in-memory (serve un device/emulatore)
 ```
 
 ## Build ed esecuzione su un dispositivo reale
@@ -126,8 +127,12 @@ Punti su cui il design ha dovuto scendere a compromessi con le API Android:
   `NotificationListenerService`.
 - **Re-post delle app.** WhatsApp/Telegram aggiornano la stessa notifica più
   volte ("sta scrivendo…", "N messaggi"). C'è un **dedupe** su `sbn.key` entro
-  una finestra breve, ma i gruppi e i messaggi multipli restano un'area da
-  raffinare (i gruppi per ora sono **esclusi dall'MVP**).
+  una finestra breve; i messaggi multipli ravvicinati restano un'area da
+  raffinare.
+- **Gruppi.** Disattivati di default, attivabili da Impostazioni. Funzionano solo
+  quando la notifica del gruppo espone il **nome di chi ha scritto** (tipicamente
+  via MessagingStyle): se l'app mostra solo il nome del gruppo, non è indovinabile
+  e viene scartato.
 - **UsageStatsManager.** L'accesso all'utilizzo va concesso a mano; su alcune
   ROM OEM il deep link non evidenzia la nostra app. Inoltre gli eventi hanno una
   granularità/latenza non nulla: applichiamo un piccolo margine anti-skew.
@@ -142,7 +147,12 @@ Punti su cui il design ha dovuto scendere a compromessi con le API Android:
 
 Implementato: struttura Gradle, listener con anti-sbirciatina, Room (3 entità),
 scoring puro + unit test, schermate Compose (Onboarding, Home, Guess, Reveal,
-Statistiche con **grafico andamento del punteggio**) e una schermata
-**Impostazioni** (DataStore) per scegliere le app tracciate e la penalità per le
-risposte sbagliate. Prossimi passi suggeriti: gestione dei **messaggi di
-gruppo**, hardening dei casi limite di re-post, e statistiche più ricche.
+Statistiche con **grafico andamento del punteggio**), schermata **Impostazioni**
+(DataStore: app tracciate, penalità, inclusione gruppi), **gestione opzionale dei
+messaggi di gruppo** (indovina chi ha scritto nel gruppo), e test strumentati
+Room in-memory sul flusso intercettazione→guess.
+
+Prossimi passi suggeriti (post-MVP): migrazioni Room reali al posto della
+`fallbackToDestructiveMigration`, hardening dei casi limite di re-post/gruppi su
+più OEM, statistiche più ricche, e la *Sensitive Permissions Declaration* per la
+pubblicazione.

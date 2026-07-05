@@ -44,6 +44,7 @@ data class GuessScreenState(
     val sourcePackage: String,
     val appName: String,
     val arrivalTs: Long,
+    val groupName: String?,
     val recentContacts: List<Contact>
 )
 
@@ -111,6 +112,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
                 sourcePackage = event.sourcePackage,
                 appName = NotificationConfig.displayName(event.sourcePackage),
                 arrivalTs = event.arrivalTs,
+                groupName = event.groupName,
                 recentContacts = contacts
             )
         }
@@ -143,5 +145,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setPenaltyValue(value: Int) {
         viewModelScope.launch { settingsRepository.setPenaltyValue(value) }
+    }
+
+    fun setIncludeGroups(include: Boolean) {
+        viewModelScope.launch { settingsRepository.setIncludeGroups(include) }
     }
 }

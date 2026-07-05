@@ -1,12 +1,12 @@
 package com.chisara.app.notification
 
 import android.app.Notification
-import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.chisara.app.data.repository.GameRepository
+import com.chisara.app.data.settings.AppSettings
 import com.chisara.app.data.settings.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,11 +21,13 @@ import kotlinx.coroutines.launch
  *
  * Flow in [onNotificationPosted]:
  *  1. Ignore anything that isn't a tracked app, is our own notification, is a
- *     summary/ongoing/group notification, or has no identifiable sender.
- *  2. If the message body is already readable (the app has previews enabled), drop
+ *     summary/ongoing notification, or has no identifiable sender.
+ *  2. Group messages are skipped unless the user enabled them in settings (and only
+ *     when the sender within the group is actually known).
+ *  3. If the message body is already readable (the app has previews enabled), drop
  *     it from the game — the user would see it in the shade anyway, so it isn't
  *     "guessable".
- *  3. Otherwise store the true sender, cancel the original, and post the blind one.
+ *  4. Otherwise store the true sender, cancel the original, and post the blind one.
  */
 class ChiSaraNotificationListener : NotificationListenerService() {
 
@@ -37,16 +39,16 @@ class ChiSaraNotificationListener : NotificationListenerService() {
     private val recentlyHandled = HashMap<String, Long>()
 
     /**
-     * Cached tracked-package set kept in sync with settings, so the hot
-     * [onNotificationPosted] path reads it synchronously without touching DataStore.
+     * Cached settings kept in sync with DataStore, so the hot [onNotificationPosted]
+     * path reads tracked packages / group policy synchronously.
      */
     @Volatile
-    private var trackedPackages: Set<String> = NotificationConfig.trackedPackages
+    private var settings: AppSettings = AppSettings()
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName ?: return
         if (pkg == packageName) return
-        if (pkg !in trackedPackages) return
+        if (pkg !in settings.trackedPackages) return
 
         val notification = sbn.notification ?: return
         if (shouldSkip(sbn, notification)) return
@@ -57,15 +59,19 @@ class ChiSaraNotificationListener : NotificationListenerService() {
         if (lastHandled != null && now - lastHandled < DEDUPE_WINDOW_MS) return
 
         val extras = notification.extras
-        val sender = extractSender(notification, extras, pkg)
+        val msg = extractMessage(notification, extras)
+
+        val sender = msg.sender
         if (sender.isNullOrBlank() || isGenericSender(sender, pkg)) {
             // No identifiable person → nothing to guess. Leave the notification alone.
             return
         }
 
-        if (isGroupConversation(extras, sender)) {
-            // Group messages are out of scope for the MVP.
-            return
+        if (msg.isGroup) {
+            if (!settings.includeGroups) return
+            // In a group we can only play if we know WHO wrote (a distinct person,
+            // not just the group name).
+            if (msg.groupName == null || sender.equals(msg.groupName, ignoreCase = true)) return
         }
 
         val body = extractBody(extras)
@@ -89,7 +95,8 @@ class ChiSaraNotificationListener : NotificationListenerService() {
                 repository.recordInterceptedNotification(
                     senderName = sender,
                     sourcePackage = pkg,
-                    arrivalTs = now
+                    arrivalTs = now,
+                    groupName = if (msg.isGroup) msg.groupName else null
                 )
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to record intercepted notification", t)
@@ -100,9 +107,9 @@ class ChiSaraNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         Log.i(TAG, "Notification listener connected")
-        // Keep the tracked-package cache in sync with the user's settings.
+        // Keep the settings cache in sync with the user's choices.
         settingsRepository.settings
-            .onEach { trackedPackages = it.trackedPackages }
+            .onEach { settings = it }
             .launchIn(scope)
     }
 
@@ -123,29 +130,38 @@ class ChiSaraNotificationListener : NotificationListenerService() {
         return false
     }
 
-    /** The sender: prefer the MessagingStyle Person, fall back to the notification title. */
-    private fun extractSender(
+    /** Sender + group context extracted from a notification. */
+    private data class ExtractedMessage(
+        val sender: String?,
+        val groupName: String?,
+        val isGroup: Boolean
+    )
+
+    /**
+     * Resolves the sender and whether this is a group message.
+     * MessagingStyle is the reliable source: the last message's Person is the real
+     * sender, and a non-blank conversationTitle (or the group flag) marks a group.
+     */
+    private fun extractMessage(
         notification: Notification,
-        extras: android.os.Bundle,
-        pkg: String
-    ): String? {
-        // MessagingStyle carries the most reliable per-message sender.
-        val messagingSender = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            NotificationCompat.MessagingStyle
-                .extractMessagingStyleFromNotification(notification)
-                ?.messages?.lastOrNull()?.person?.name?.toString()
-        } else null
+        extras: android.os.Bundle
+    ): ExtractedMessage {
+        val style = NotificationCompat.MessagingStyle
+            .extractMessagingStyleFromNotification(notification)
+        val person = style?.messages?.lastOrNull()?.person?.name?.toString()
+        val conversationTitle = style?.conversationTitle?.toString()
+        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
 
-        if (!messagingSender.isNullOrBlank()) return messagingSender
+        val groupFlag = extras.getBoolean("android.isGroupConversation", false)
+        val isGroup = groupFlag || (!conversationTitle.isNullOrBlank() && !person.isNullOrBlank())
 
-        val conversationTitle = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            NotificationCompat.MessagingStyle
-                .extractMessagingStyleFromNotification(notification)
-                ?.conversationTitle?.toString()
-        } else null
-        if (!conversationTitle.isNullOrBlank()) return conversationTitle
-
-        return extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        val sender = when {
+            !person.isNullOrBlank() -> person
+            !isGroup && !conversationTitle.isNullOrBlank() -> conversationTitle
+            else -> title
+        }
+        val groupName = if (isGroup) (conversationTitle ?: title) else null
+        return ExtractedMessage(sender = sender, groupName = groupName, isGroup = isGroup)
     }
 
     private fun extractBody(extras: android.os.Bundle): String? {
@@ -163,13 +179,6 @@ class ChiSaraNotificationListener : NotificationListenerService() {
         return s == NotificationConfig.displayName(pkg).lowercase() ||
             s == "whatsapp" || s == "telegram" || s == "instagram" ||
             s.matches(Regex("\\d+ (nuovi )?messaggi.*")) // "3 messaggi", "3 new messages"
-    }
-
-    private fun isGroupConversation(extras: android.os.Bundle, sender: String): Boolean {
-        if (extras.getBoolean("android.isGroupConversation", false)) return true
-        // WhatsApp groups render the title as "Group name" and put "Sender: text" in body;
-        // Telegram uses "Sender @ Group". A ':' or '@' in the title is a decent group signal.
-        return sender.contains("@") && sender.contains(":")
     }
 
     /**

@@ -122,7 +122,8 @@ fun HomeScreen(
                                 )
                                 Text(
                                     "${NotificationConfig.displayName(event.sourcePackage)} · " +
-                                        Format.dayTime(event.arrivalTs),
+                                        Format.dayTime(event.arrivalTs) +
+                                        (event.groupName?.let { " · gruppo \"$it\"" } ?: ""),
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

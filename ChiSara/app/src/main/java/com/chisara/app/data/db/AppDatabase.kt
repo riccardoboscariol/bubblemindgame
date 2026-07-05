@@ -14,7 +14,7 @@ import com.chisara.app.data.db.entity.NotificationEvent
 
 @Database(
     entities = [Contact::class, NotificationEvent::class, GuessAttempt::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -33,7 +33,11 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "chisara.db"
-                ).build().also { INSTANCE = it }
+                )
+                    // Pre-release MVP: a schema change wipes local game history rather
+                    // than shipping migrations. Replace with real migrations before release.
+                    .fallbackToDestructiveMigration()
+                    .build().also { INSTANCE = it }
             }
     }
 }

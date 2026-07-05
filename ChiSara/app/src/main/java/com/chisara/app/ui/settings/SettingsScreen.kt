@@ -88,6 +88,29 @@ fun SettingsScreen(
                 }
             }
 
+            SectionCard(title = "Messaggi di gruppo") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Includi i gruppi")
+                        Text(
+                            "Indovina chi ha scritto in un gruppo. Funziona solo se la notifica " +
+                                "rivela il nome di chi ha scritto.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Switch(
+                        checked = settings.includeGroups,
+                        onCheckedChange = { viewModel.setIncludeGroups(it) }
+                    )
+                }
+            }
+
             SectionCard(title = "Penalità per risposta sbagliata") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
