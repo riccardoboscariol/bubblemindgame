@@ -53,11 +53,7 @@ class ChiSaraNotificationListener : NotificationListenerService() {
         val notification = sbn.notification ?: return
         if (shouldSkip(sbn, notification)) return
 
-        // Dedupe: WhatsApp/Telegram update the same key many times (typing, "N messages").
         val now = System.currentTimeMillis()
-        val lastHandled = recentlyHandled[sbn.key]
-        if (lastHandled != null && now - lastHandled < DEDUPE_WINDOW_MS) return
-
         val extras = notification.extras
         val msg = extractMessage(notification, extras)
 
@@ -81,15 +77,21 @@ class ChiSaraNotificationListener : NotificationListenerService() {
             return
         }
 
-        recentlyHandled[sbn.key] = now
-        pruneRecent(now)
-
-        // Replace: cancel the original, then record + post the blind notification.
+        // Always cancel the original — including on re-posts/updates of the same key
+        // (apps like Telegram repost the same notification several times). If we deduped
+        // *before* cancelling, a re-post would linger in the shade showing the sender.
         try {
             cancelNotification(sbn.key)
         } catch (t: Throwable) {
             Log.w(TAG, "Could not cancel original notification", t)
         }
+
+        // Dedupe only the game event: one round per key per window, even though we keep
+        // cancelling every re-post above.
+        val lastHandled = recentlyHandled[sbn.key]
+        if (lastHandled != null && now - lastHandled < DEDUPE_WINDOW_MS) return
+        recentlyHandled[sbn.key] = now
+        pruneRecent(now)
 
         scope.launch {
             try {
