@@ -21,6 +21,9 @@ jobs:
   build:
     name: Build debug APK & run unit tests
     runs-on: ubuntu-latest
+    # Needed so the rolling pre-release step can create/update a release + tag.
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -67,3 +70,21 @@ jobs:
           name: unit-test-report
           path: ChiSara/app/build/reports/tests/testDebugUnitTest
           if-no-files-found: ignore
+
+      # Give the APK a nicer download filename, then publish it as a rolling
+      # pre-release so there's a direct, login-free, non-zip download link.
+      - name: Stage APK for release
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/chisara-latest.apk
+
+      - name: Publish rolling pre-release with the APK
+        if: github.ref == 'refs/heads/claude/chi-sara-notification-game-jbeby5'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-latest
+          name: "Chi Sarà — ultima build (debug)"
+          prerelease: true
+          body: |
+            APK di debug della build più recente di **Chi Sarà**.
+            Scarica `chisara-latest.apk` qui sotto e installalo su un telefono Android reale.
+            Build non firmata per il Play Store: Android chiederà conferma per l'installazione.
+          files: ChiSara/app/build/outputs/apk/debug/chisara-latest.apk
